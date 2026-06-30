@@ -1,0 +1,2065 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-title" content="我的知识库" />
+<meta name="application-name" content="我的知识库" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="theme-color" content="#ffffff" />
+<link rel="icon" type="image/svg+xml" href="./icon.svg" />
+<link rel="apple-touch-icon" href="./icon.svg" />
+<link rel="manifest" href="./manifest.json" />
+<title>我的知识库</title>
+<style>
+  :root{
+    --bg:#ffffff;
+    --bg-page:#e9e9e7;
+    --bg-soft:#f7f7f5;
+    --text:#37352f;
+    --text-soft:#787774;
+    --text-faint:#9b9a97;
+    --border:#ededec;
+    --chip:#f1f0ee;
+    --chip-text:#5b5a56;
+    --accent:#2f6fed;
+    --accent-soft:#eef3fe;
+    --danger:#e03e3e;
+    --radius:14px;
+    --shadow:0 1px 2px rgba(15,15,15,.05), 0 1px 3px rgba(15,15,15,.04);
+  }
+  *{ box-sizing:border-box; margin:0; padding:0; -webkit-tap-highlight-color:transparent; }
+  html,body{ height:100%; }
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI","PingFang SC","Microsoft YaHei",Roboto,Helvetica,Arial,sans-serif;
+    background:var(--bg-page);
+    color:var(--text);
+    -webkit-font-smoothing:antialiased;
+    line-height:1.6;
+  }
+  #app{
+    max-width:480px;
+    margin:0 auto;
+    height:100vh;
+    height:100dvh;
+    background:var(--bg);
+    display:flex;
+    flex-direction:column;
+    overflow:hidden;
+    position:relative;
+  }
+
+  /* ===== Views ===== */
+  .view{ flex:1; display:none; flex-direction:column; min-height:0; }
+  .view.active{ display:flex; }
+
+  .topbar{
+    flex-shrink:0;
+    padding:14px 18px 12px;
+    background:rgba(255,255,255,.92);
+    backdrop-filter:saturate(180%) blur(8px);
+    -webkit-backdrop-filter:saturate(180%) blur(8px);
+    border-bottom:1px solid var(--border);
+  }
+  .topbar .title{ font-size:22px; font-weight:700; letter-spacing:.3px; }
+
+  .searchbox{
+    margin-top:12px;
+    display:flex; align-items:center; gap:8px;
+    background:var(--bg-soft);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:9px 12px;
+  }
+  .searchbox svg{ width:18px; height:18px; color:var(--text-faint); flex-shrink:0; }
+  .searchbox input{
+    border:none; outline:none; background:transparent;
+    width:100%; font-size:16px; color:var(--text);
+  }
+  .searchbox input::placeholder{ color:var(--text-faint); }
+
+  .scroll{ flex:1; overflow-y:auto; -webkit-overflow-scrolling:touch; padding:14px 16px 24px; }
+
+  .metarow{
+    display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+    font-size:13px; color:var(--text-soft);
+    padding:2px 2px 12px;
+  }
+  .clearbtn{
+    border:none; background:var(--accent-soft); color:var(--accent);
+    font-size:12px; padding:3px 9px; border-radius:20px; cursor:pointer;
+  }
+
+  /* ===== Tag bar (chips) ===== */
+  .tagbar{
+    display:flex; gap:8px; overflow-x:auto; padding:0 2px 14px;
+    scrollbar-width:none;
+  }
+  .tagbar::-webkit-scrollbar{ display:none; }
+  .chip{
+    flex-shrink:0;
+    border:1px solid var(--border);
+    background:var(--chip);
+    color:var(--chip-text);
+    font-size:13px;
+    padding:6px 13px;
+    border-radius:20px;
+    cursor:pointer;
+    white-space:nowrap;
+    transition:all .15s;
+  }
+  .chip.on{ background:var(--text); color:#fff; border-color:var(--text); }
+  .chip.colored{ border-color:transparent; font-weight:500; }
+  .chip.dragging{ opacity:.6; transform:scale(1.06); box-shadow:0 4px 12px rgba(0,0,0,.18); }
+  .chip.drop-target{ box-shadow:inset 0 0 0 2px var(--accent); }
+  .tagbar.reordering{ touch-action:none; }
+
+  /* ===== Cards ===== */
+  .list{ display:flex; flex-direction:column; gap:12px; }
+  .card{
+    display:flex; align-items:flex-start; gap:8px;
+    background:var(--bg);
+    border:1px solid var(--border);
+    border-radius:var(--radius);
+    padding:15px 14px 13px 16px;
+    box-shadow:var(--shadow);
+    transition:border-color .15s;
+  }
+  .card:active{ border-color:#dcdcda; }
+  .card.pinned{ border-color:#f0d98a; box-shadow:0 1px 3px rgba(180,140,20,.12); }
+  .card.pressing{ transform:scale(.985); transition:transform .12s; }
+  .pin-badge{
+    flex-shrink:0; display:inline-flex; align-items:center; gap:3px;
+    font-size:11px; font-weight:600; color:#9a7a0e;
+    background:#fdf5d8; padding:2px 8px 2px 6px; border-radius:20px;
+    margin-bottom:6px; width:fit-content;
+  }
+  .pin-badge svg{ width:12px; height:12px; }
+  .card-main{ flex:1; min-width:0; cursor:pointer; -webkit-user-select:none; user-select:none; }
+  .card-title{ font-size:16px; font-weight:600; margin-bottom:5px; word-break:break-word; }
+  .card-body{
+    font-size:14px; color:var(--text-soft);
+    word-break:break-word;
+  }
+  .card-body.collapsed{ display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; }
+  .card-body.expanded{ white-space:pre-wrap; color:var(--text); }
+  .card-foot{
+    display:flex; align-items:center; justify-content:space-between;
+    gap:10px; margin-top:11px; flex-wrap:wrap;
+  }
+  .card-tags{ display:flex; gap:6px; flex-wrap:wrap; }
+  .tag{
+    font-size:12px; font-weight:500;
+    padding:2px 9px; border-radius:6px; cursor:pointer;
+  }
+  .card-time{ font-size:12px; color:var(--text-faint); white-space:nowrap; }
+  .del{
+    flex-shrink:0;
+    border:none; background:transparent; cursor:pointer;
+    color:var(--text-faint);
+    width:34px; height:34px; border-radius:8px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .del:active{ background:#fdecec; color:var(--danger); }
+  .del svg{ width:18px; height:18px; }
+
+  /* ===== Empty state ===== */
+  .empty{
+    text-align:center; color:var(--text-faint);
+    padding:60px 20px; font-size:14px;
+  }
+  .empty .big{ font-size:40px; margin-bottom:12px; opacity:.5; }
+
+  /* ===== Add form ===== */
+  .form{ display:flex; flex-direction:column; gap:8px; }
+  .segment{
+    display:flex; gap:4px; background:var(--bg-soft);
+    border:1px solid var(--border); border-radius:11px; padding:4px; margin-bottom:6px;
+  }
+  .seg-btn{
+    flex:1; display:flex; align-items:center; justify-content:center; gap:6px;
+    border:none; background:transparent; cursor:pointer;
+    font-size:14px; font-weight:500; color:var(--text-soft);
+    padding:9px 6px; border-radius:8px; transition:all .15s;
+  }
+  .seg-btn svg{ width:17px; height:17px; }
+  .seg-btn.active{ background:#fff; color:var(--accent); box-shadow:var(--shadow); }
+  .flabel{ font-size:13px; font-weight:600; color:var(--text-soft); margin-top:10px; }
+  .flabel .opt{ font-weight:400; color:var(--text-faint); }
+  .finput,.ftext{
+    width:100%; font-size:16px; color:var(--text);
+    border:1px solid var(--border); border-radius:10px;
+    padding:11px 13px; background:var(--bg-soft); outline:none;
+    font-family:inherit;
+    transition:border-color .15s, background .15s;
+  }
+  .finput:focus,.ftext:focus{ border-color:var(--accent); background:#fff; }
+  .ftext{ min-height:160px; resize:vertical; line-height:1.7; }
+  .ftext.err,.finput.err{ border-color:var(--danger); animation:shake .3s; }
+  @keyframes shake{ 0%,100%{transform:translateX(0)} 25%{transform:translateX(-5px)} 75%{transform:translateX(5px)} }
+
+  /* rich-text editor */
+  .rt-toolbar{
+    display:flex; flex-wrap:wrap; gap:4px;
+    background:var(--bg-soft); border:1px solid var(--border); border-bottom:none;
+    border-radius:10px 10px 0 0; padding:6px;
+  }
+  .rt-btn{
+    min-width:34px; height:32px; padding:0 8px;
+    border:1px solid transparent; background:#fff; border-radius:7px;
+    font-size:15px; color:var(--text); cursor:pointer;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .rt-btn:active{ background:var(--accent-soft); }
+  .rt-btn .rt-A{ font-weight:700; border-bottom:3px solid #e03e3e; line-height:1; padding-bottom:1px; }
+  .rt-btn .rt-hl{ font-weight:700; background:#fff3a3; padding:0 3px; border-radius:3px; }
+  .rt-editor{
+    border-radius:0 0 10px 10px; overflow-y:auto; max-height:340px;
+    -webkit-user-select:text; user-select:text;
+  }
+  .rt-editor:empty:before{ content:attr(data-placeholder); color:var(--text-faint); }
+  .rt-editor:focus{ outline:none; }
+  .rt-pop{
+    display:flex; flex-wrap:wrap; gap:8px; align-items:center;
+    background:#fff; border:1px solid var(--border); border-top:none;
+    padding:10px; margin-top:-1px;
+  }
+  .rt-pop .rt-swatch{ width:26px; height:26px; border-radius:6px; border:2px solid #fff; box-shadow:0 0 0 1px var(--border); cursor:pointer; }
+  .rt-pop .rt-sym{
+    min-width:32px; height:32px; border:1px solid var(--border); background:var(--bg-soft);
+    border-radius:6px; font-size:16px; cursor:pointer; display:flex; align-items:center; justify-content:center;
+  }
+  .rt-pop .rt-sym:active{ background:var(--accent-soft); }
+  /* rendered rich content inside cards */
+  .card-body b, .card-body strong{ font-weight:700; }
+  .card-body u{ text-decoration:underline; }
+  .card-body mark{ border-radius:2px; padding:0 1px; }
+  .tag-suggest{ display:flex; flex-wrap:wrap; gap:7px; align-items:center; margin-top:4px; }
+  .suggest-label{ width:100%; font-size:12px; color:var(--text-faint); margin-bottom:2px; }
+  .savebtn{
+    margin-top:18px;
+    border:none; background:var(--accent); color:#fff;
+    font-size:16px; font-weight:600;
+    padding:14px; border-radius:12px; cursor:pointer;
+    box-shadow:0 2px 8px rgba(47,111,237,.25);
+  }
+  .savebtn:active{ background:#2860d8; }
+
+  /* ===== Tags view ===== */
+  .tags-list{ display:flex; flex-direction:column; gap:8px; }
+  .newtag{
+    display:flex; gap:8px; margin-bottom:6px;
+  }
+  .newtag input{
+    flex:1; font-size:16px; color:var(--text);
+    border:1px solid var(--border); border-radius:10px;
+    padding:11px 13px; background:var(--bg-soft); outline:none;
+  }
+  .newtag input:focus{ border-color:var(--accent); background:#fff; }
+  .newtag button{
+    flex-shrink:0; border:none; background:var(--accent); color:#fff;
+    font-size:15px; font-weight:600; padding:0 18px; border-radius:10px; cursor:pointer;
+  }
+  .newtag button:active{ background:#2860d8; }
+  .color-picker{
+    display:flex; flex-wrap:wrap; gap:8px; align-items:center;
+    padding:2px 2px 10px;
+  }
+  .swatch{
+    width:28px; height:28px; border-radius:50%;
+    border:2px solid transparent; cursor:pointer; padding:0;
+    position:relative; transition:transform .1s, box-shadow .12s;
+  }
+  .swatch:active{ transform:scale(.9); }
+  .swatch.on{
+    border:3px solid var(--text);
+    box-shadow:0 0 0 2px #fff, 0 0 0 4px var(--text);
+    transform:scale(1.08);
+  }
+  .swatch.on::after{
+    content:"✓"; position:absolute; inset:0;
+    display:flex; align-items:center; justify-content:center;
+    font-size:14px; font-weight:800; color:#fff;
+    text-shadow:0 0 2px rgba(0,0,0,.55), 0 1px 1px rgba(0,0,0,.4);
+  }
+  .swatch.auto{
+    background:var(--bg-soft); border:1px dashed var(--text-faint);
+    color:var(--text-soft); font-size:13px; font-weight:700;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .swatch.auto.on{ border:2px solid var(--text); color:var(--text); }
+  .swatch.auto.on::after{ content:""; }
+  .tags-hint{ font-size:12px; color:var(--text-faint); padding:0 2px 8px; }
+  .tagrow{
+    display:flex; align-items:center; justify-content:space-between;
+    width:100%; border:1px solid var(--border); background:var(--bg);
+    border-radius:12px; padding:14px 16px; cursor:pointer;
+    font-size:15px; color:var(--text); box-shadow:var(--shadow);
+  }
+  .tagrow:active{ background:var(--bg-soft); }
+  .tagrow .left{ display:flex; align-items:center; gap:11px; min-width:0; }
+  .tagrow .dot{ width:11px; height:11px; border-radius:50%; flex-shrink:0; }
+  .tagrow .name{ font-weight:500; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .tagcount{
+    flex-shrink:0;
+    font-size:13px; color:var(--text-soft);
+    background:var(--chip); padding:2px 11px; border-radius:20px;
+  }
+  .tagcount.empty-count{ color:var(--text-faint); }
+
+  /* tag row actions */
+  .tagrow-wrap{
+    display:flex; align-items:stretch; gap:8px;
+    border:1px solid var(--border); background:var(--bg);
+    border-radius:12px; box-shadow:var(--shadow); overflow:hidden;
+  }
+  .tagrow-wrap .tagrow{ border:none; box-shadow:none; border-radius:0; flex:1; }
+  .tag-actions{ display:flex; align-items:center; padding-right:8px; gap:2px; }
+  .tag-act{
+    border:none; background:transparent; cursor:pointer; color:var(--text-faint);
+    width:36px; height:36px; border-radius:8px;
+    display:flex; align-items:center; justify-content:center;
+  }
+  .tag-act svg{ width:18px; height:18px; }
+  .tag-act.edit:active{ background:var(--accent-soft); color:var(--accent); }
+  .tag-act.del:active{ background:#fdecec; color:var(--danger); }
+  .tag-act.color:active{ background:var(--accent-soft); color:var(--accent); }
+  .tag-item{ display:flex; flex-direction:column; gap:0; }
+  .tag-colorbar{
+    display:flex; flex-wrap:wrap; gap:8px; align-items:center;
+    padding:10px 14px 12px; margin-top:-2px;
+    background:var(--bg-soft); border:1px solid var(--border);
+    border-top:none; border-radius:0 0 12px 12px;
+  }
+  .tag-colorbar .cb-label{ width:100%; font-size:12px; color:var(--text-faint); margin-bottom:2px; }
+
+  /* tags-page pinyin grouping + A-Z rail */
+  #view-tags{ position:relative; }
+  #tags-scroll{ padding-right:30px; }
+  .tag-group-head{
+    font-size:12px; font-weight:700; color:var(--text-faint);
+    padding:14px 4px 6px; letter-spacing:.5px;
+  }
+  .az-rail{
+    position:absolute; top:64px; right:3px; bottom:10px;
+    display:flex; flex-direction:column; justify-content:center; gap:1px;
+    width:20px; z-index:5;
+    -webkit-user-select:none; user-select:none; touch-action:none;
+  }
+  .az-rail button{
+    border:none; background:transparent; cursor:pointer; padding:0;
+    font-size:10px; line-height:1.05; font-weight:600;
+    color:var(--text-faint); opacity:.45;
+    width:20px; border-radius:4px;
+  }
+  .az-rail button.has{ color:var(--accent); opacity:.85; }
+  .az-rail button:active{ background:var(--accent-soft); opacity:1; }
+  .tag-hidden .tagrow .name{ color:var(--text-faint); }
+  .tag-hidden .tagrow .dot{ opacity:.4; }
+  .tag-act.eye:active{ background:var(--accent-soft); color:var(--accent); }
+  .tag-act.eye.off{ color:var(--text-faint); }
+
+  /* ===== Ask AI ===== */
+  .ai-settings{
+    background:var(--bg-soft); border:1px solid var(--border);
+    border-radius:14px; padding:14px; margin-bottom:14px;
+  }
+  .ai-set-title{ font-size:15px; font-weight:700; margin-bottom:6px; }
+  .ai-set-row{ display:flex; align-items:center; gap:14px; }
+  .ai-textbtn{
+    border:none; background:transparent; color:var(--danger);
+    font-size:13px; cursor:pointer; margin-top:12px;
+  }
+  .ai-scope{
+    display:flex; align-items:center; gap:8px; flex-wrap:wrap;
+    font-size:13px; color:var(--text-soft); margin-bottom:12px;
+  }
+  .ai-scope-btn{
+    border:1px solid var(--border); background:var(--chip); color:var(--chip-text);
+    font-size:13px; padding:5px 12px; border-radius:20px; cursor:pointer;
+  }
+  .ai-scope-btn.on{ background:var(--text); color:#fff; border-color:var(--text); }
+  .ai-answer{
+    border:1px solid var(--border); background:var(--bg);
+    border-radius:14px; padding:16px; min-height:120px;
+    font-size:15px; line-height:1.7; white-space:pre-wrap; word-break:break-word;
+    box-shadow:var(--shadow); margin-bottom:14px;
+  }
+  .ai-answer.ai-empty{ color:var(--text-faint); white-space:normal; }
+  .ai-answer.loading{ color:var(--text-soft); }
+  .ai-answer .ai-cursor{ display:inline-block; width:7px; height:15px; background:var(--accent); animation:blink 1s steps(2) infinite; vertical-align:-2px; }
+  @keyframes blink{ 0%{opacity:1} 50%{opacity:0} 100%{opacity:1} }
+  .ai-src{ margin-top:12px; font-size:12px; color:var(--text-faint); }
+  .ai-src b{ color:var(--text-soft); }
+  .ai-ask{ display:flex; flex-direction:column; }
+
+  /* ===== Link card ===== */
+  .card.linkcard .card-main{ display:flex; flex-direction:column; }
+  .link-head{ display:flex; align-items:center; gap:8px; margin-bottom:4px; }
+  .link-ico{
+    flex-shrink:0; width:30px; height:30px; border-radius:8px;
+    background:var(--accent-soft); color:var(--accent);
+    display:flex; align-items:center; justify-content:center;
+  }
+  .link-ico svg{ width:17px; height:17px; }
+  .link-url{
+    font-size:12px; color:var(--accent); word-break:break-all;
+    margin-top:2px; display:inline-block;
+  }
+  .link-open{
+    display:inline-flex; align-items:center; gap:5px;
+    margin-top:9px; font-size:13px; font-weight:600;
+    color:var(--accent); background:var(--accent-soft);
+    padding:6px 12px; border-radius:8px; text-decoration:none; width:fit-content;
+  }
+  .link-open svg{ width:14px; height:14px; }
+  .link-open:active{ background:#e0eafd; }
+
+  /* ===== Bottom nav ===== */
+  .bottomnav{
+    flex-shrink:0;
+    display:flex;
+    border-top:1px solid var(--border);
+    background:rgba(255,255,255,.96);
+    backdrop-filter:saturate(180%) blur(8px);
+    -webkit-backdrop-filter:saturate(180%) blur(8px);
+    padding-bottom:env(safe-area-inset-bottom);
+  }
+  .navbtn{
+    flex:1; border:none; background:transparent; cursor:pointer;
+    display:flex; flex-direction:column; align-items:center; gap:3px;
+    padding:9px 0 8px; color:var(--text-faint); font-size:11px;
+  }
+  .navbtn svg{ width:23px; height:23px; }
+  .navbtn.active{ color:var(--accent); }
+
+  /* ===== Icon button + bottom sheet ===== */
+  .titlerow{ display:flex; align-items:center; justify-content:space-between; gap:10px; }
+  .iconbtn{
+    flex-shrink:0; border:none; background:var(--bg-soft);
+    width:38px; height:38px; border-radius:10px; cursor:pointer;
+    display:flex; align-items:center; justify-content:center; color:var(--text-soft);
+  }
+  .iconbtn:active{ background:var(--chip); }
+  .iconbtn svg{ width:21px; height:21px; }
+
+  .sheet-mask{
+    position:absolute; inset:0; background:rgba(15,15,15,.35);
+    opacity:0; pointer-events:none; transition:opacity .2s; z-index:50;
+  }
+  .sheet-mask.show{ opacity:1; pointer-events:auto; }
+  .sheet{
+    position:absolute; left:0; right:0; bottom:0; z-index:51;
+    background:var(--bg); border-radius:18px 18px 0 0;
+    padding:8px 14px calc(14px + env(safe-area-inset-bottom));
+    transform:translateY(110%); transition:transform .25s ease;
+    box-shadow:0 -4px 24px rgba(15,15,15,.14);
+  }
+  .sheet.show{ transform:translateY(0); }
+  .sheet-handle{ width:38px; height:4px; border-radius:3px; background:#dcdcda; margin:8px auto 14px; }
+  .sheet-title{ font-size:13px; color:var(--text-faint); padding:0 4px 6px; }
+  .sheet-item{
+    display:flex; align-items:center; gap:13px; width:100%;
+    border:none; background:transparent; cursor:pointer;
+    padding:14px 6px; font-size:16px; color:var(--text); text-align:left;
+    border-top:1px solid var(--border);
+  }
+  .sheet-item:active{ background:var(--bg-soft); }
+  .sheet-item svg{ width:21px; height:21px; flex-shrink:0; color:var(--text-soft); }
+  .sheet-item .si-sub{ display:block; font-size:12px; color:var(--text-faint); margin-top:2px; font-weight:400; }
+  .sheet-item.danger{ color:var(--danger); }
+  .sheet-item.danger svg{ color:var(--danger); }
+  .sheet-note{ font-size:12px; color:var(--text-faint); line-height:1.5; padding:12px 6px 4px; }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ===== HOME ===== -->
+  <section id="view-home" class="view active">
+    <header class="topbar">
+      <div class="titlerow">
+        <div class="title">我的知识库</div>
+        <button id="menu-btn" class="iconbtn" aria-label="数据备份与管理">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="5" r="1.4"/><circle cx="12" cy="12" r="1.4"/><circle cx="12" cy="19" r="1.4"/></svg>
+        </button>
+      </div>
+      <div class="searchbox">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m21 21-4-4"/></svg>
+        <input id="search" type="search" placeholder="搜索标题、内容或标签…" autocomplete="off" />
+      </div>
+    </header>
+    <div class="scroll">
+      <div id="count" class="metarow"></div>
+      <div id="tagbar" class="tagbar"></div>
+      <div id="list" class="list"></div>
+    </div>
+  </section>
+
+  <!-- ===== ADD ===== -->
+  <section id="view-add" class="view">
+    <header class="topbar"><div class="title">添加</div></header>
+    <div class="scroll form">
+      <div class="segment" id="mode-seg">
+        <button type="button" class="seg-btn active" data-mode="note">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 3h11l3 3v15H5z"/><path d="M9 8h6M9 12h6M9 16h4"/></svg>
+          笔记
+        </button>
+        <button type="button" class="seg-btn" data-mode="link">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7 0l2-2a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-2 2a5 5 0 0 0 7 7l1-1"/></svg>
+          链接 / 快捷方式
+        </button>
+      </div>
+
+      <label class="flabel">标题 <span class="opt" id="title-opt">（可选，留空将自动生成）</span></label>
+      <input id="f-title" class="finput" placeholder="给这条知识起个标题" />
+
+      <div id="field-content">
+        <label class="flabel">内容</label>
+        <div class="rt-toolbar" id="rt-toolbar">
+          <button type="button" class="rt-btn" data-cmd="bold" title="加粗"><b>B</b></button>
+          <button type="button" class="rt-btn" data-cmd="underline" title="下划线"><span style="text-decoration:underline">U</span></button>
+          <button type="button" class="rt-btn" data-pop="color" title="文字颜色"><span class="rt-A">A</span></button>
+          <button type="button" class="rt-btn" data-pop="hilite" title="文字高亮"><span class="rt-hl">H</span></button>
+          <button type="button" class="rt-btn" data-pop="symbol" title="插入符号">Ω</button>
+          <button type="button" class="rt-btn" data-cmd="removeFormat" title="清除格式">⌫</button>
+        </div>
+        <div class="rt-pop" id="rt-pop" style="display:none"></div>
+        <div id="f-content" class="ftext rt-editor" contenteditable="true" data-placeholder="在这里记录知识点，支持多行，可加粗 / 下划线 / 改色 / 高亮 / 插入符号…"></div>
+      </div>
+
+      <div id="field-url" style="display:none">
+        <label class="flabel">网址</label>
+        <input id="f-url" class="finput" type="url" inputmode="url" placeholder="https:// 或 jdme:// 等任意可跳转链接" />
+        <label class="flabel">备注 <span class="opt">（可选）</span></label>
+        <textarea id="f-note" class="ftext" style="min-height:80px" placeholder="这个链接是做什么的…"></textarea>
+      </div>
+
+      <label class="flabel">标签</label>
+      <input id="f-tags" class="finput" placeholder="用空格分隔，如：城市规划 论文" />
+      <div id="tag-suggest" class="tag-suggest"></div>
+      <button id="save-btn" class="savebtn">保 存</button>
+    </div>
+  </section>
+
+  <!-- ===== TAGS ===== -->
+  <section id="view-tags" class="view">
+    <header class="topbar"><div class="title">标签</div></header>
+    <div class="scroll" id="tags-scroll">
+      <div class="newtag">
+        <input id="newtag-input" type="text" placeholder="新建一个标签…" autocomplete="off" maxlength="20" />
+        <button id="newtag-btn">新建</button>
+      </div>
+      <div class="color-picker" id="color-picker">
+        <button type="button" class="swatch auto on" data-color="" title="自动配色">A</button>
+      </div>
+      <div class="tags-hint">新建的标签会出现在「添加」页，方便快速选用。可先选颜色再新建；给已有标签换色时，输入它的名字并选色即可。</div>
+      <div id="tags-list" class="tags-list"></div>
+    </div>
+    <div id="az-rail" class="az-rail"></div>
+  </section>
+
+  <!-- ===== ASK AI ===== -->
+  <section id="view-ai" class="view">
+    <header class="topbar">
+      <div class="titlerow">
+        <div class="title">问 AI</div>
+        <button id="ai-settings-btn" class="iconbtn" aria-label="AI 设置">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.6 1.6 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.6 1.6 0 0 0-1.8-.3 1.6 1.6 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.6 1.6 0 0 0-1-1.5 1.6 1.6 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.6 1.6 0 0 0 .3-1.8 1.6 1.6 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.6 1.6 0 0 0 1.5-1 1.6 1.6 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.6 1.6 0 0 0 1.8.3H9a1.6 1.6 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.6 1.6 0 0 0 1 1.5 1.6 1.6 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.6 1.6 0 0 0-.3 1.8V9a1.6 1.6 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.6 1.6 0 0 0-1.5 1z"/></svg>
+        </button>
+      </div>
+    </header>
+    <div class="scroll">
+      <div id="ai-settings" class="ai-settings" style="display:none">
+        <div class="ai-set-title">AI 设置（智谱 GLM）</div>
+        <label class="flabel">API Key</label>
+        <input id="ai-key" class="finput" type="password" placeholder="粘贴你的智谱 API Key" autocomplete="off" />
+        <label class="flabel">模型</label>
+        <input id="ai-model" class="finput" placeholder="glm-4-flash" />
+        <label class="flabel">接口地址 <span class="opt">（一般不用改）</span></label>
+        <input id="ai-endpoint" class="finput" placeholder="https://open.bigmodel.cn/api/paas/v4/chat/completions" />
+        <div class="ai-set-row">
+          <button id="ai-save-set" class="savebtn" style="margin-top:12px">保存设置</button>
+          <button id="ai-clear-key" class="ai-textbtn">清除 Key</button>
+        </div>
+        <div class="sheet-note" style="padding:12px 2px 0">Key 只保存在这台手机的浏览器里，不会写进文件、不会上传。换设备需重新填写。<br>没有 Key？去 <b>open.bigmodel.cn</b> 注册后在「API Keys」里创建。</div>
+      </div>
+
+      <div id="ai-main">
+        <div class="ai-scope">
+          <span>回答依据：</span>
+          <button type="button" class="ai-scope-btn on" data-scope="all">全部知识</button>
+          <button type="button" class="ai-scope-btn" data-scope="filtered">当前标签</button>
+        </div>
+        <div id="ai-answer" class="ai-answer ai-empty">问任何关于你笔记的问题，我会基于你保存的知识来回答。<br><br>例如：「我关于研究方法都记了什么？」「帮我总结城市规划相关的笔记。」</div>
+        <div class="ai-ask">
+          <textarea id="ai-input" class="ftext" style="min-height:60px" placeholder="输入你的问题…"></textarea>
+          <button id="ai-send" class="savebtn" style="margin-top:8px">提问</button>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===== Data menu (bottom sheet) ===== -->
+  <div id="sheet-mask" class="sheet-mask"></div>
+  <div id="sheet" class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title">数据备份与管理</div>
+    <button id="export-btn" class="sheet-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3v12"/><path d="m8 11 4 4 4-4"/><path d="M5 19h14"/></svg>
+      <span>导出备份<span class="si-sub">把全部知识保存为 .json 文件</span></span>
+    </button>
+    <button id="import-btn" class="sheet-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15V3"/><path d="m8 7 4-4 4 4"/><path d="M5 19h14"/></svg>
+      <span>导入恢复<span class="si-sub">从 .json 文件读取并合并</span></span>
+    </button>
+    <button id="clear-btn" class="sheet-item danger">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V5h6v2M7 7l1 13h8l1-13"/></svg>
+      <span>清空全部数据</span>
+    </button>
+    <div class="sheet-note">提示：知识保存在本浏览器中，不会自动同步到其他设备或浏览器。换设备或清理浏览器前，请先「导出备份」。</div>
+  </div>
+  <input id="import-file" type="file" accept="application/json,.json" style="display:none" />
+
+  <!-- ===== Card action menu (bottom sheet) ===== -->
+  <div id="card-mask" class="sheet-mask"></div>
+  <div id="card-sheet" class="sheet">
+    <div class="sheet-handle"></div>
+    <div class="sheet-title" id="card-sheet-title">操作</div>
+    <button id="pin-btn" class="sheet-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 3h6l-1 7 3 3H7l3-3z"/></svg>
+      <span id="pin-btn-label">置顶</span>
+    </button>
+    <div class="sheet-item" style="cursor:default; flex-direction:column; align-items:stretch; gap:10px;">
+      <div style="display:flex; align-items:center; gap:13px;">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:21px;height:21px;color:var(--text-soft)"><circle cx="13.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="10.5" r="2.5"/><circle cx="8.5" cy="7.5" r="2.5"/><circle cx="6.5" cy="12.5" r="2.5"/><path d="M12 2a10 10 0 1 0 0 20c1.4 0 2-1 2-2 0-1.4-1-1.6-1-3 0-1 1-2 2-2h2a5 5 0 0 0 5-5c0-5-4.5-8-12-8z"/></svg>
+        <span>设置内容背景色</span>
+      </div>
+      <div class="color-picker" id="card-color-picker" style="padding:0 0 2px 34px;"></div>
+    </div>
+    <button id="unpin-btn" class="sheet-item">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"/><path d="M12 17v5"/><path d="M9 3h6l-1 7"/><path d="M7 13h7"/></svg>
+      <span>取消置顶</span>
+    </button>
+  </div>
+
+  <!-- ===== Bottom nav ===== -->
+  <nav class="bottomnav">
+    <button class="navbtn active" data-view="home">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 10.5 12 3l9 7.5"/><path d="M5 9.5V21h14V9.5"/></svg>
+      首页
+    </button>
+    <button class="navbtn" data-view="add">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/></svg>
+      添加
+    </button>
+    <button class="navbtn" data-view="tags">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11.5V3.5h8L21 13.5l-8 8z"/><circle cx="7.5" cy="7.5" r="1.6"/></svg>
+      标签
+    </button>
+    <button class="navbtn" data-view="ai">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3a9 9 0 0 0-9 9c0 1.6.4 3 1.2 4.3L3 21l4.9-1.2A9 9 0 1 0 12 3z"/><path d="M8.5 12h.01M12 12h.01M15.5 12h.01"/></svg>
+      问AI
+    </button>
+  </nav>
+</div>
+
+<script>
+(function(){
+  "use strict";
+  var STORAGE_KEY = "kb_items_v1";
+  var TAGS_KEY = "kb_tags_v1";
+  var COLORS_KEY = "kb_tagcolors_v1";
+  var ORDER_KEY = "kb_tagorder_v1";
+  var HIDDEN_KEY = "kb_hiddentags_v1";
+  var AISET_KEY = "kb_aiset_v1";
+  var items = [];
+  var customTags = [];   // user-created tags that may have 0 knowledge items
+  var activeTag = null;
+  var searchQuery = "";
+  var expandedId = null;
+  var currentMode = "note";   // "note" | "link" (add form)
+  var colorEditTag = null;    // tag name whose inline color bar is open (tags page)
+  var tagOrder = [];          // manual order of tags in the home bar
+  var hiddenTags = [];        // tags hidden from the home bar (still exist elsewhere)
+  var aiSettings = { key:"", model:"glm-4-flash", endpoint:"https://open.bigmodel.cn/api/paas/v4/chat/completions" };
+  var aiScope = "all";        // "all" | "filtered"
+  var aiBusy = false;
+  var tagColors = {};         // optional per-tag color override: { tagName: paletteKey }
+  var pickedColor = null;     // color key chosen in the new-tag picker (null = auto)
+  var actingCardId = null;    // id of the card whose action sheet is open
+
+  // Notion-style soft palette: {soft background, readable text}
+  var PALETTE = [
+    { key:"blue",   bg:"#e8f0fe", fg:"#1a56db" },
+    { key:"green",  bg:"#e6f4ea", fg:"#137333" },
+    { key:"red",    bg:"#fce8e6", fg:"#c5221f" },
+    { key:"orange", bg:"#fef0e0", fg:"#b45309" },
+    { key:"purple", bg:"#f3e8fd", fg:"#7c3aed" },
+    { key:"pink",   bg:"#fde9f1", fg:"#be185d" },
+    { key:"teal",   bg:"#dff3f4", fg:"#0e7490" },
+    { key:"amber",  bg:"#fcf3c8", fg:"#92660a" },
+    { key:"indigo", bg:"#e8eaf6", fg:"#3949ab" },
+    { key:"olive",  bg:"#eaf2e0", fg:"#4d7c0f" }
+  ];
+  function paletteByKey(key){
+    for(var i=0;i<PALETTE.length;i++){ if(PALETTE[i].key === key) return PALETTE[i]; }
+    return null;
+  }
+
+  // Very soft card-background tints (keep body text readable). key "" = default white.
+  var CARD_BG = [
+    { key:"",       bg:"#ffffff", dot:"#ffffff", ring:"#e0e0de" },
+    { key:"yellow", bg:"#fdf6d8", dot:"#f2dd7a" },
+    { key:"green",  bg:"#e7f4e4", dot:"#9fd49a" },
+    { key:"blue",   bg:"#e6f0fb", dot:"#9cc2ee" },
+    { key:"purple", bg:"#f1e9fb", dot:"#c4a9ef" },
+    { key:"pink",   bg:"#fce9f0", dot:"#f0a9c6" },
+    { key:"gray",   bg:"#f0f0ee", dot:"#cfcfca" }
+  ];
+  function cardBgByKey(key){
+    for(var i=0;i<CARD_BG.length;i++){ if(CARD_BG[i].key === key) return CARD_BG[i]; }
+    return CARD_BG[0];
+  }
+  function autoColor(name){
+    var h = 0;
+    for(var i=0;i<name.length;i++){ h = (h*31 + name.charCodeAt(i)) >>> 0; }
+    return PALETTE[h % PALETTE.length];
+  }
+  function tagColor(name){
+    if(tagColors[name]){
+      var c = paletteByKey(tagColors[name]);
+      if(c) return c;
+    }
+    return autoColor(name);
+  }
+
+  // ---- DOM ----
+  var $ = function(id){ return document.getElementById(id); };
+  var listEl = $("list"), countEl = $("count"), tagbarEl = $("tagbar");
+  var tagsListEl = $("tags-list"), tagSuggestEl = $("tag-suggest");
+  var searchEl = $("search");
+  var colorPickerEl = $("color-picker");
+  var fTitle = $("f-title"), fContent = $("f-content"), fTags = $("f-tags");
+  var fUrl = $("f-url"), fNote = $("f-note");
+
+  // ---- Utils ----
+  function uid(){ return Date.now().toString(36) + Math.random().toString(36).slice(2,7); }
+  function esc(s){
+    return String(s).replace(/[&<>"']/g, function(c){
+      return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c];
+    });
+  }
+  function persist(){
+    try{
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(items));
+      localStorage.setItem(TAGS_KEY, JSON.stringify(customTags));
+      localStorage.setItem(COLORS_KEY, JSON.stringify(tagColors));
+      localStorage.setItem(ORDER_KEY, JSON.stringify(tagOrder));
+      localStorage.setItem(HIDDEN_KEY, JSON.stringify(hiddenTags));
+    }catch(e){}
+  }
+  // AI settings are device-local and deliberately NOT part of data export/backup
+  function persistAiSettings(){
+    try{ localStorage.setItem(AISET_KEY, JSON.stringify(aiSettings)); }catch(e){}
+  }
+  function deriveTitle(content){
+    var first = content.split("\n")[0].trim();
+    if(!first) return "无标题";
+    return first.length > 24 ? first.slice(0,24) + "…" : first;
+  }
+  function parseTags(raw){
+    var parts = raw.split(/[\s,，、#]+/);
+    var out = [], seen = {};
+    for(var i=0;i<parts.length;i++){
+      var t = parts[i].trim().replace(/^#/,"");
+      if(t && !seen[t]){ seen[t] = 1; out.push(t); }
+    }
+    return out.slice(0,8);
+  }
+  function normalizeUrl(raw){
+    var u = (raw||"").trim();
+    if(!u) return "";
+    // already has a scheme like https:  jdme:  mailto: tel:
+    if(/^[a-zA-Z][a-zA-Z0-9+.\-]*:/.test(u)) return u;
+    // looks like a bare domain -> assume https
+    return "https://" + u;
+  }
+  function safeHref(raw){
+    // only allow safe schemes to become clickable; block javascript:/data:
+    var u = (raw||"").trim();
+    if(/^\s*(javascript|data|vbscript):/i.test(u)) return "";
+    return u;
+  }
+
+  // ---- Rich text: sanitize + plain-text extraction ----
+  // Whitelist of inline formatting tags we allow in note HTML.
+  var RT_TAGS = { B:1, STRONG:1, U:1, I:1, EM:1, MARK:1, SPAN:1, BR:1, DIV:1, P:1, FONT:1 };
+  function sanitizeColor(v){
+    v = (v||"").trim();
+    // allow #hex, rgb()/rgba(), and simple named colors only
+    if(/^#[0-9a-fA-F]{3,8}$/.test(v)) return v;
+    if(/^rgba?\(\s*[\d.,%\s]+\)$/.test(v)) return v;
+    if(/^[a-zA-Z]{1,20}$/.test(v)) return v;
+    return "";
+  }
+  function sanitizeHtml(dirty){
+    var tpl = document.createElement("div");
+    tpl.innerHTML = String(dirty || "");
+    (function walk(node){
+      var children = Array.prototype.slice.call(node.childNodes);
+      children.forEach(function(c){
+        if(c.nodeType === 3){ return; }                    // text node: keep
+        if(c.nodeType !== 1){ node.removeChild(c); return; } // comments etc: drop
+        if(!RT_TAGS[c.tagName]){
+          // unknown tag -> unwrap (keep its text children), drop the element
+          while(c.firstChild){ node.insertBefore(c.firstChild, c); }
+          node.removeChild(c);
+          return;
+        }
+        // strip all attributes except a sanitized inline color/background
+        var keepColor = "", keepBg = "";
+        if(c.style){
+          keepColor = sanitizeColor(c.style.color);
+          keepBg = sanitizeColor(c.style.backgroundColor);
+        }
+        var fontColor = (c.tagName === "FONT") ? sanitizeColor(c.getAttribute("color")||"") : "";
+        for(var i=c.attributes.length-1;i>=0;i--){ c.removeAttribute(c.attributes[i].name); }
+        var style = "";
+        if(keepColor) style += "color:" + keepColor + ";";
+        if(fontColor && !keepColor) style += "color:" + fontColor + ";";
+        if(keepBg) style += "background-color:" + keepBg + ";";
+        if(style) c.setAttribute("style", style);
+        walk(c);
+      });
+    })(tpl);
+    return tpl.innerHTML;
+  }
+  function htmlToText(html){
+    var d = document.createElement("div");
+    d.innerHTML = String(html || "");
+    // turn block/break boundaries into newlines so summaries read naturally
+    d.querySelectorAll("br").forEach(function(b){ b.replaceWith("\n"); });
+    d.querySelectorAll("div,p").forEach(function(b){ b.appendChild(document.createTextNode("\n")); });
+    return (d.textContent || "").replace(/\n{2,}/g, "\n").trim();
+  }
+  function formatTime(ts){
+    var diff = Date.now() - ts;
+    var min=60000, hr=3600000, day=86400000;
+    if(diff < min) return "刚刚";
+    if(diff < hr) return Math.floor(diff/min) + " 分钟前";
+    if(diff < day) return Math.floor(diff/hr) + " 小时前";
+    if(diff < day*2) return "昨天";
+    var d = new Date(ts);
+    function p(n){ return n<10 ? "0"+n : ""+n; }
+    return d.getFullYear() + "-" + p(d.getMonth()+1) + "-" + p(d.getDate());
+  }
+  function tagCounts(){
+    var m = {};
+    customTags.forEach(function(t){ m[t] = 0; });
+    items.forEach(function(it){ (it.tags||[]).forEach(function(t){ m[t] = (m[t]||0)+1; }); });
+    return m;
+  }
+
+  // ---- Pinyin-initial helpers (for tags-page sorting + A-Z index) ----
+  var zhCollator = null;
+  try{ zhCollator = new Intl.Collator("zh-Hans-CN"); }catch(e){}
+  function zhCmp(a,b){ return zhCollator ? zhCollator.compare(a,b) : String(a).localeCompare(b,"zh"); }
+  // boundary char = first hanzi that sorts into each pinyin letter group
+  var PY_BOUNDARIES = [
+    ["A","阿"],["B","八"],["C","嚓"],["D","哒"],["E","妸"],["F","发"],
+    ["G","旮"],["H","哈"],["J","讥"],["K","咔"],["L","垃"],["M","妈"],
+    ["N","拿"],["O","哦"],["P","趴"],["Q","七"],["R","然"],["S","撒"],
+    ["T","塌"],["W","挖"],["X","夕"],["Y","压"],["Z","匝"]
+  ];
+  function pinyinInitial(name){
+    var ch = (name||"").charAt(0);
+    if(!ch) return "#";
+    if(/[a-z]/i.test(ch)) return ch.toUpperCase();
+    if(/[0-9]/.test(ch)) return "#";
+    if(ch.charCodeAt(0) < 0x3400) return "#";   // not CJK
+    var initial = "#";
+    for(var i=0;i<PY_BOUNDARIES.length;i++){
+      if(zhCmp(ch, PY_BOUNDARIES[i][1]) >= 0){ initial = PY_BOUNDARIES[i][0]; }
+      else break;
+    }
+    return initial;
+  }
+  function tagsByPinyin(){
+    var m = tagCounts();
+    return Object.keys(m).sort(function(a,b){
+      var ia = pinyinInitial(a), ib = pinyinInitial(b);
+      if(ia !== ib){
+        if(ia === "#") return 1;     // '#' bucket sinks to the end
+        if(ib === "#") return -1;
+        return ia < ib ? -1 : 1;
+      }
+      return zhCmp(a, b);
+    });
+  }
+  function allTags(){
+    var m = tagCounts();
+    return Object.keys(m).sort(function(a,b){ return m[b]-m[a] || a.localeCompare(b,"zh"); });
+  }
+  function filtered(){
+    var q = searchQuery.toLowerCase();
+    var rows = items.filter(function(it){
+      if(activeTag && (it.tags||[]).indexOf(activeTag) === -1) return false;
+      if(q){
+        var hay = (it.title + " " + it.content + " " + (it.url||"") + " " + (it.tags||[]).join(" ")).toLowerCase();
+        if(hay.indexOf(q) === -1) return false;
+      }
+      return true;
+    });
+    // pinned first, otherwise keep existing order (items[] is already newest-first)
+    var pinned = [], rest = [];
+    rows.forEach(function(it){ (it.pinned ? pinned : rest).push(it); });
+    return pinned.concat(rest);
+  }
+
+  // ---- Render ----
+  function renderCount(){
+    var total = items.length;
+    var f = filtered().length;
+    var html;
+    if(activeTag || searchQuery){
+      html = "筛选出 " + f + " 条 · 共 " + total + " 条";
+    }else{
+      html = "共 " + total + " 条知识";
+    }
+    if(activeTag){
+      html += ' <button id="clear-filter" class="clearbtn">清除 #' + esc(activeTag) + ' ✕</button>';
+    }
+    countEl.innerHTML = html;
+  }
+
+  function orderedHomeTags(){
+    var all = allTags();
+    var visible = all.filter(function(t){ return hiddenTags.indexOf(t) === -1; });
+    // apply saved manual order; unknown/new tags go to the end (in allTags order)
+    var inOrder = [];
+    tagOrder.forEach(function(t){ if(visible.indexOf(t) !== -1 && inOrder.indexOf(t) === -1) inOrder.push(t); });
+    visible.forEach(function(t){ if(inOrder.indexOf(t) === -1) inOrder.push(t); });
+    return inOrder;
+  }
+
+  function renderTagbar(){
+    var tags = orderedHomeTags();
+    var html = '<button class="chip ' + (activeTag?"":"on") + '" data-settag="">全部</button>';
+    tags.forEach(function(t){
+      var c = tagColor(t);
+      var style = (activeTag===t) ? "" : ' style="background:' + c.bg + ';color:' + c.fg + '"';
+      html += '<button class="chip colored ' + (activeTag===t?"on":"") + '"' + style + ' data-settag="' + esc(t) + '" data-chiptag="' + esc(t) + '">' + esc(t) + '</button>';
+    });
+    tagbarEl.innerHTML = html;
+  }
+
+  function renderList(){
+    var rows = filtered();
+    if(rows.length === 0){
+      if(items.length === 0){
+        listEl.innerHTML = '<div class="empty"><div class="big">📚</div>还没有任何知识<br>点击下方「添加」开始记录吧</div>';
+      }else{
+        listEl.innerHTML = '<div class="empty"><div class="big">🔍</div>没有匹配的知识</div>';
+      }
+      return;
+    }
+    var html = "";
+    rows.forEach(function(it){
+      var expanded = expandedId === it.id;
+      var tagsHtml = (it.tags||[]).map(function(t){
+        var c = tagColor(t);
+        return '<span class="tag" style="background:' + c.bg + ';color:' + c.fg + '" data-tag="' + esc(t) + '">' + esc(t) + '</span>';
+      }).join("");
+      var foot =
+        '<div class="card-foot">' +
+          '<div class="card-tags">' + tagsHtml + '</div>' +
+          '<time class="card-time">' + formatTime(it.createdAt) + '</time>' +
+        '</div>';
+      var delBtn =
+        '<button class="del" data-action="delete" aria-label="删除">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V5h6v2M7 7l1 13h8l1-13"/></svg>' +
+        '</button>';
+      var cardCls = "card" + (it.type==="link"?" linkcard":"") + (it.pinned?" pinned":"");
+      var bg = cardBgByKey(it.bg||"");
+      var cardStyle = (it.bg && bg.key) ? ' style="background:' + bg.bg + ';border-color:' + bg.bg + '"' : "";
+      var pinBadge = it.pinned
+        ? '<div class="pin-badge"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 3h6l-1 7 3 3H7l3-3z"/></svg>已置顶</div>'
+        : "";
+
+      if(it.type === "link"){
+        var href = safeHref(it.url);
+        var openBtn = href
+          ? '<a class="link-open" href="' + esc(href) + '" target="_blank" rel="noopener" data-action="open">' +
+              '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17 17 7M9 7h8v8"/></svg>打开链接</a>'
+          : '<span class="link-url">⚠ 链接无效</span>';
+        var note = "";
+        if(it.content){
+          if(expanded){ note = '<p class="card-body expanded" style="margin-top:6px">' + esc(it.content) + '</p>'; }
+          else{
+            var flatN = it.content.replace(/\s+/g," ").trim();
+            note = '<p class="card-body collapsed" style="margin-top:6px">' + (flatN.length>50?esc(flatN.slice(0,50))+"…":esc(flatN)) + '</p>';
+          }
+        }
+        html +=
+          '<article class="' + cardCls + '" data-id="' + it.id + '"' + cardStyle + '>' +
+            '<div class="card-main" data-action="toggle">' +
+              pinBadge +
+              '<div class="link-head">' +
+                '<span class="link-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7 0l2-2a5 5 0 0 0-7-7l-1 1"/><path d="M14 11a5 5 0 0 0-7 0l-2 2a5 5 0 0 0 7 7l1-1"/></svg></span>' +
+                '<h3 class="card-title" style="margin:0">' + esc(it.title) + '</h3>' +
+              '</div>' +
+              '<span class="link-url">' + esc(it.url||"") + '</span>' +
+              note +
+              openBtn +
+              foot +
+            '</div>' +
+            delBtn +
+          '</article>';
+      }else{
+        var body;
+        if(expanded){
+          if(it.html){ body = '<div class="card-body expanded">' + sanitizeHtml(it.html) + '</div>'; }
+          else{ body = '<p class="card-body expanded">' + esc(it.content) + '</p>'; }
+        }else{
+          var flat = it.content.replace(/\s+/g," ").trim();
+          var sum = flat.length > 50 ? esc(flat.slice(0,50)) + "…" : esc(flat);
+          body = '<p class="card-body collapsed">' + sum + '</p>';
+        }
+        html +=
+          '<article class="' + cardCls + '" data-id="' + it.id + '"' + cardStyle + '>' +
+            '<div class="card-main" data-action="toggle">' +
+              pinBadge +
+              '<h3 class="card-title">' + esc(it.title) + '</h3>' +
+              body +
+              foot +
+            '</div>' +
+            delBtn +
+          '</article>';
+      }
+    });
+    listEl.innerHTML = html;
+  }
+
+  function tagRowHtml(t, m){
+    var c = tagColor(t);
+    var count = m[t];
+    var countCls = count === 0 ? "tagcount empty-count" : "tagcount";
+    var countTxt = count === 0 ? "未使用" : (count + " 条");
+    var colorBar = "";
+    if(colorEditTag === t){
+      var cur = tagColors[t] || "";
+      var swatches = '<button type="button" class="swatch auto' + (cur===""?" on":"") + '" data-tagcolor="" data-for="' + esc(t) + '" title="自动配色">A</button>';
+      PALETTE.forEach(function(p){
+        swatches += '<button type="button" class="swatch' + (cur===p.key?" on":"") + '" data-tagcolor="' + p.key + '" data-for="' + esc(t) + '" style="background:' + p.fg + '" title="' + p.key + '"></button>';
+      });
+      colorBar = '<div class="tag-colorbar"><div class="cb-label">为「' + esc(t) + '」选择颜色（A = 自动）</div>' + swatches + '</div>';
+    }
+    var hidden = hiddenTags.indexOf(t) !== -1;
+    var eyeBtn = '<button class="tag-act eye" data-eyetag="' + esc(t) + '" aria-label="' + (hidden?"在首页显示":"从首页隐藏") + '">' +
+      (hidden
+        ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3l18 18"/><path d="M10.6 5.1A9 9 0 0 1 12 5c6 0 10 7 10 7a17 17 0 0 1-3 3.6M6.5 6.6A17 17 0 0 0 2 12s4 7 10 7a9 9 0 0 0 4-.9"/><path d="M9.5 9.6a3 3 0 0 0 4.2 4.2"/></svg>'
+        : '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7-10-7-10-7z"/><circle cx="12" cy="12" r="3"/></svg>') +
+      '</button>';
+    var rowCls = "tag-item" + (hidden ? " tag-hidden" : "");
+    return '<div class="' + rowCls + '">' +
+      '<div class="tagrow-wrap">' +
+        '<button class="tagrow" data-settag="' + esc(t) + '">' +
+          '<span class="left"><span class="dot" style="background:' + c.fg + '"></span>' +
+          '<span class="name">' + esc(t) + '</span></span>' +
+          '<span class="' + countCls + '">' + countTxt + '</span>' +
+        '</button>' +
+        '<span class="tag-actions">' +
+          eyeBtn +
+          '<button class="tag-act color" data-colortag="' + esc(t) + '" aria-label="改颜色">' +
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="13.5" cy="6.5" r="2.5"/><circle cx="17.5" cy="10.5" r="2.5"/><circle cx="8.5" cy="7.5" r="2.5"/><circle cx="6.5" cy="12.5" r="2.5"/><path d="M12 2a10 10 0 1 0 0 20c1.4 0 2-1 2-2 0-1.4-1-1.6-1-3 0-1 1-2 2-2h2a5 5 0 0 0 5-5c0-5-4.5-8-12-8z"/></svg>' +
+          '</button>' +
+          '<button class="tag-act edit" data-edittag="' + esc(t) + '" aria-label="重命名">' +
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4z"/></svg>' +
+          '</button>' +
+          '<button class="tag-act del" data-deltag="' + esc(t) + '" aria-label="删除标签">' +
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 7h16M9 7V5h6v2M7 7l1 13h8l1-13"/></svg>' +
+          '</button>' +
+        '</span>' +
+      '</div>' +
+      colorBar +
+    '</div>';
+  }
+
+  function renderTagsView(){
+    var tags = tagsByPinyin();
+    var m = tagCounts();
+    if(tags.length === 0){
+      tagsListEl.innerHTML = '<div class="empty"><div class="big">🏷️</div>还没有标签<br>在上方输入框新建一个吧</div>';
+      renderAzRail({});
+      return;
+    }
+    var html = "", lastInitial = null, present = {};
+    tags.forEach(function(t){
+      var ini = pinyinInitial(t);
+      present[ini] = true;
+      if(ini !== lastInitial){
+        html += '<div class="tag-group-head" id="azg-' + ini + '">' + (ini==="#"?"#":ini) + '</div>';
+        lastInitial = ini;
+      }
+      html += tagRowHtml(t, m);
+    });
+    tagsListEl.innerHTML = html;
+    renderAzRail(present);
+  }
+
+  function renderAzRail(present){
+    var rail = $("az-rail");
+    var letters = "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+    letters.push("#");
+    rail.innerHTML = letters.map(function(L){
+      var has = present[L] ? " has" : "";
+      return '<button class="' + has.trim() + '" data-az="' + L + '">' + L + '</button>';
+    }).join("");
+  }
+
+  function renderTagSuggest(){
+    var tags = allTags();
+    if(tags.length === 0){ tagSuggestEl.innerHTML = ""; return; }
+    tagSuggestEl.innerHTML = '<div class="suggest-label">点击添加已有标签</div>' +
+      tags.map(function(t){
+        var c = tagColor(t);
+        return '<button type="button" class="chip colored" style="background:' + c.bg + ';color:' + c.fg + '" data-addtag="' + esc(t) + '">' + esc(t) + '</button>';
+      }).join("");
+  }
+
+  function renderColorPicker(){
+    var html = '<button type="button" class="swatch auto' + (pickedColor===null?" on":"") + '" data-color="" title="自动配色">A</button>';
+    PALETTE.forEach(function(p){
+      html += '<button type="button" class="swatch' + (pickedColor===p.key?" on":"") + '" data-color="' + p.key + '" style="background:' + p.fg + '" title="' + p.key + '"></button>';
+    });
+    colorPickerEl.innerHTML = html;
+  }
+
+  function renderAll(){
+    renderCount();
+    renderTagbar();
+    renderList();
+    renderTagsView();
+    renderTagSuggest();
+    renderColorPicker();
+  }
+
+  // ---- Actions ----
+  function setView(name){
+    var views = ["home","add","tags","ai"];
+    views.forEach(function(v){
+      $("view-"+v).classList.toggle("active", v===name);
+    });
+    document.querySelectorAll(".navbtn").forEach(function(b){
+      b.classList.toggle("active", b.dataset.view===name);
+    });
+    var sc = $("view-"+name).querySelector(".scroll");
+    if(sc) sc.scrollTop = 0;
+  }
+
+  function filterByTag(tag){
+    activeTag = tag || null;
+    setView("home");
+    renderAll();
+  }
+
+  function setTagColor(name, colorKey){
+    if(colorKey){ tagColors[name] = colorKey; }
+    else{ delete tagColors[name]; }   // empty = back to auto
+  }
+
+  function createTag(){
+    var input = $("newtag-input");
+    var name = (input.value || "").trim().replace(/^#/,"");
+    if(!name){ input.focus(); return; }
+    if(name.length > 20) name = name.slice(0,20);
+    var exists = allTags().some(function(t){ return t === name; });
+    if(exists){
+      // existing tag: apply the chosen color (recolor) and jump to it
+      setTagColor(name, pickedColor);
+      input.value = "";
+      pickedColor = null;
+      persist();
+      filterByTag(name);
+      return;
+    }
+    customTags.push(name);
+    setTagColor(name, pickedColor);
+    persist();
+    input.value = "";
+    pickedColor = null;
+    renderAll();
+  }
+
+  function renameTag(oldName){
+    var input = window.prompt("重命名标签「" + oldName + "」\n输入新的名称：", oldName);
+    if(input === null) return;            // cancelled
+    var name = input.trim().replace(/^#/,"");
+    if(!name){ alert("标签名不能为空。"); return; }
+    if(name.length > 20) name = name.slice(0,20);
+    if(name === oldName) return;
+    var clash = allTags().indexOf(name) !== -1;
+    if(clash){
+      if(!window.confirm("标签「" + name + "」已存在。\n继续将把「" + oldName + "」合并到「" + name + "」。是否继续？")) return;
+    }
+    // update all knowledge items that use the old tag
+    items.forEach(function(it){
+      if(!it.tags) return;
+      var idx = it.tags.indexOf(oldName);
+      if(idx !== -1){
+        if(it.tags.indexOf(name) === -1){ it.tags[idx] = name; }
+        else{ it.tags.splice(idx,1); }   // merging: target already present
+      }
+    });
+    // update custom-tag list
+    var ci = customTags.indexOf(oldName);
+    if(ci !== -1){
+      if(customTags.indexOf(name) === -1){ customTags[ci] = name; }
+      else{ customTags.splice(ci,1); }
+    }else if(clash === false && customTags.indexOf(name) === -1){
+      // old tag only existed via items; keep new name discoverable
+      // (no-op: it now lives on items, will appear via tagCounts)
+    }
+    // carry over color override to the new name
+    if(tagColors[oldName]){
+      if(!tagColors[name]) tagColors[name] = tagColors[oldName];
+      delete tagColors[oldName];
+    }
+    if(activeTag === oldName) activeTag = name;
+    persist();
+    renderAll();
+  }
+
+  function deleteTag(name){
+    var m = tagCounts();
+    var used = m[name] || 0;
+    var msg = used > 0
+      ? "删除标签「" + name + "」吗？\n它会从 " + used + " 条知识中移除（知识本身不会被删除）。"
+      : "删除标签「" + name + "」吗？";
+    if(!window.confirm(msg)) return;
+    items.forEach(function(it){
+      if(it.tags){
+        var idx = it.tags.indexOf(name);
+        if(idx !== -1) it.tags.splice(idx,1);
+      }
+    });
+    var ci = customTags.indexOf(name);
+    if(ci !== -1) customTags.splice(ci,1);
+    delete tagColors[name];
+    if(activeTag === name) activeTag = null;
+    persist();
+    renderAll();
+  }
+
+  function switchMode(mode){
+    currentMode = mode;
+    document.querySelectorAll("#mode-seg .seg-btn").forEach(function(b){
+      b.classList.toggle("active", b.dataset.mode === mode);
+    });
+    var isLink = mode === "link";
+    $("field-content").style.display = isLink ? "none" : "";
+    $("field-url").style.display = isLink ? "" : "none";
+    $("f-title").placeholder = isLink ? "给这个链接起个名字" : "给这条知识起个标题";
+    $("title-opt").textContent = isLink ? "（可选，留空将用网址）" : "（可选，留空将自动生成）";
+  }
+
+  function deleteItem(id){
+    var it = items.filter(function(x){ return x.id===id; })[0];
+    var name = it ? it.title : "这条知识";
+    if(!window.confirm("确定删除「" + name + "」吗？\n此操作不可撤销。")) return;
+    items = items.filter(function(x){ return x.id !== id; });
+    if(expandedId === id) expandedId = null;
+    persist();
+    renderAll();
+  }
+
+  function saveItem(){
+    var tags = parseTags(fTags.value);
+    var rec;
+    if(currentMode === "link"){
+      var url = normalizeUrl(fUrl.value);
+      if(!url){
+        fUrl.classList.add("err");
+        fUrl.focus();
+        setTimeout(function(){ fUrl.classList.remove("err"); }, 400);
+        return;
+      }
+      var ltitle = fTitle.value.trim() || url.replace(/^[a-z]+:\/\//i,"").replace(/\/$/,"").slice(0,40);
+      rec = { id:uid(), type:"link", title:ltitle, url:url, content:fNote.value.trim(), tags:tags, createdAt:Date.now() };
+    }else{
+      var rawHtml = sanitizeHtml(fContent.innerHTML);
+      var content = htmlToText(rawHtml);
+      if(!content){
+        fContent.classList.add("err");
+        fContent.focus();
+        setTimeout(function(){ fContent.classList.remove("err"); }, 400);
+        return;
+      }
+      var title = fTitle.value.trim() || deriveTitle(content);
+      rec = { id:uid(), type:"note", title:title, content:content, html:rawHtml, tags:tags, createdAt:Date.now() };
+    }
+    items.unshift(rec);
+    persist();
+    fTitle.value = ""; fContent.innerHTML = ""; fTags.value = "";
+    fUrl.value = ""; fNote.value = "";
+    searchQuery = ""; searchEl.value = "";
+    activeTag = null; expandedId = null;
+    switchMode("note");
+    setView("home");
+    renderAll();
+  }
+
+  // ---- Events (delegation, bound once) ----
+  document.querySelectorAll(".navbtn").forEach(function(b){
+    b.addEventListener("click", function(){ setView(b.dataset.view); });
+  });
+
+  $("newtag-btn").addEventListener("click", createTag);
+  $("newtag-input").addEventListener("keydown", function(e){
+    if(e.key === "Enter"){ e.preventDefault(); createTag(); }
+  });
+
+  colorPickerEl.addEventListener("click", function(e){
+    var sw = e.target.closest("[data-color]");
+    if(!sw) return;
+    var key = sw.getAttribute("data-color");
+    pickedColor = key || null;
+    renderColorPicker();
+  });
+
+  $("mode-seg").addEventListener("click", function(e){
+    var b = e.target.closest("[data-mode]");
+    if(b) switchMode(b.dataset.mode);
+  });
+
+  // ---- Rich-text toolbar ----
+  var rtPop = $("rt-pop");
+  var RT_TEXT_COLORS = ["#e03e3e","#d9730d","#dfab01","#0f7b6c","#0b6e99","#6940a5","#ad1a72","#37352f"];
+  var RT_HILITES = ["#fff3a3","#d3f0c0","#cfe6fb","#f3d9f5","#ffd9d4","#e6e6e3"];
+  var RT_SYMBOLS = ["•","◦","▪","→","⇒","★","☆","✓","✗","№","±","×","÷","≈","≤","≥","°","℃","¥","§","【","】","「","」","—","…"];
+
+  function rtFocusEditor(){ fContent.focus(); }
+  function rtExec(cmd, val){
+    rtFocusEditor();
+    try{ document.execCommand(cmd, false, val||null); }catch(e){}
+  }
+  function rtClosePop(){ rtPop.style.display = "none"; rtPop.innerHTML = ""; rtPop.removeAttribute("data-open"); }
+  function rtOpenPop(kind){
+    if(rtPop.getAttribute("data-open") === kind){ rtClosePop(); return; }
+    var html = "";
+    if(kind === "color"){
+      html = RT_TEXT_COLORS.map(function(c){ return '<span class="rt-swatch" data-rtcolor="' + c + '" style="background:' + c + '"></span>'; }).join("");
+    }else if(kind === "hilite"){
+      html = RT_HILITES.map(function(c){ return '<span class="rt-swatch" data-rthilite="' + c + '" style="background:' + c + '"></span>'; }).join("");
+      html += '<span class="rt-swatch" data-rthilite="transparent" style="background:#fff;font-size:11px;display:flex;align-items:center;justify-content:center" title="清除高亮">✕</span>';
+    }else if(kind === "symbol"){
+      html = RT_SYMBOLS.map(function(s){ return '<button type="button" class="rt-sym" data-rtsym="' + s + '">' + s + '</button>'; }).join("");
+    }
+    rtPop.innerHTML = html;
+    rtPop.style.display = "flex";
+    rtPop.setAttribute("data-open", kind);
+  }
+
+  // keep the editor selection from being lost when tapping toolbar buttons
+  $("rt-toolbar").addEventListener("mousedown", function(e){ e.preventDefault(); });
+  rtPop.addEventListener("mousedown", function(e){ e.preventDefault(); });
+
+  $("rt-toolbar").addEventListener("click", function(e){
+    var btn = e.target.closest("[data-cmd],[data-pop]");
+    if(!btn) return;
+    var cmd = btn.getAttribute("data-cmd");
+    var pop = btn.getAttribute("data-pop");
+    if(cmd){ rtClosePop(); rtExec(cmd); return; }
+    if(pop){ rtOpenPop(pop); }
+  });
+
+  rtPop.addEventListener("click", function(e){
+    var col = e.target.closest("[data-rtcolor]");
+    if(col){ rtExec("foreColor", col.getAttribute("data-rtcolor")); rtClosePop(); return; }
+    var hl = e.target.closest("[data-rthilite]");
+    if(hl){
+      var v = hl.getAttribute("data-rthilite");
+      // hiliteColor needs styleWithCSS on some engines; fall back to backColor
+      try{ document.execCommand("styleWithCSS", false, true); }catch(_){}
+      rtFocusEditor();
+      if(!document.execCommand("hiliteColor", false, v)){ document.execCommand("backColor", false, v); }
+      rtClosePop();
+      return;
+    }
+    var sym = e.target.closest("[data-rtsym]");
+    if(sym){ rtExec("insertText", sym.getAttribute("data-rtsym")); rtClosePop(); return; }
+  });
+
+  // A-Z rail: tap or drag a finger down it to jump to that letter group
+  function azJump(target){
+    var btn = target && target.closest ? target.closest("[data-az]") : null;
+    if(!btn) return;
+    var L = btn.getAttribute("data-az");
+    var head = document.getElementById("azg-" + L);
+    var scroller = $("tags-scroll");
+    if(head && scroller){
+      scroller.scrollTop = head.offsetTop - 8;
+    }
+  }
+  $("az-rail").addEventListener("click", function(e){ azJump(e.target); });
+  $("az-rail").addEventListener("touchmove", function(e){
+    var t = e.touches[0]; if(!t) return;
+    azJump(document.elementFromPoint(t.clientX, t.clientY));
+  }, {passive:true});
+
+  searchEl.addEventListener("input", function(){
+    searchQuery = searchEl.value.trim();
+    renderCount();
+    renderList();
+  });
+
+  countEl.addEventListener("click", function(e){
+    if(e.target.closest("#clear-filter")){ activeTag = null; renderAll(); }
+  });
+
+  // ---- Home tag bar: tap = filter, hold+drag = reorder, hold-still = hide ----
+  function commitOrderFromDom(){
+    var chips = tagbarEl.querySelectorAll("[data-chiptag]");
+    var order = [];
+    chips.forEach(function(ch){ order.push(ch.getAttribute("data-chiptag")); });
+    tagOrder = order;
+    persist();
+  }
+  function hideTagFromHome(tag){
+    if(hiddenTags.indexOf(tag) === -1){ hiddenTags.push(tag); }
+    if(activeTag === tag) activeTag = null;
+    persist();
+    renderTagbar();
+    renderCount();
+    renderTagsView();
+  }
+
+  var tbDown = null;        // {tag, chip, x, y, pointerId}
+  var tbMode = null;        // "armed" (holding) | "picked" (lifted, not moved) | "dragging"
+  var tbHoldTimer = null;
+  var TB_HOLD_MS = 320, TB_MOVE_TOL = 8;
+
+  function tbClearTimers(){
+    if(tbHoldTimer){ clearTimeout(tbHoldTimer); tbHoldTimer = null; }
+  }
+  function tbReset(){
+    tbClearTimers();
+    if(tbDown && tbDown.chip){ tbDown.chip.classList.remove("dragging"); }
+    tagbarEl.querySelectorAll(".drop-target").forEach(function(c){ c.classList.remove("drop-target"); });
+    tagbarEl.classList.remove("reordering");
+    tbDown = null; tbMode = null;
+  }
+  function chipAtPoint(x, y){
+    var el = document.elementFromPoint(x, y);
+    return el && el.closest ? el.closest("[data-chiptag]") : null;
+  }
+
+  tagbarEl.addEventListener("pointerdown", function(e){
+    var chip = e.target.closest("[data-chiptag]");
+    if(!chip){ tbDown = null; return; }   // "全部" or empty -> normal click
+    tbDown = { tag: chip.getAttribute("data-chiptag"), chip: chip, x: e.clientX, y: e.clientY, pointerId: e.pointerId };
+    tbMode = "armed";
+    // hold without moving -> "pick up" the chip (then move=reorder, release=hide)
+    tbHoldTimer = setTimeout(function(){
+      if(!tbDown || tbMode !== "armed") return;
+      tbMode = "picked";
+      chip.classList.add("dragging");
+      tagbarEl.classList.add("reordering");
+      try{ tagbarEl.setPointerCapture(tbDown.pointerId); }catch(_){}
+    }, TB_HOLD_MS);
+  });
+
+  tagbarEl.addEventListener("pointermove", function(e){
+    if(!tbDown) return;
+    var dx = Math.abs(e.clientX - tbDown.x), dy = Math.abs(e.clientY - tbDown.y);
+    if(tbMode === "armed"){
+      // moved before pickup -> it's a horizontal scroll, abandon our gesture
+      if(dx > TB_MOVE_TOL || dy > TB_MOVE_TOL){ tbReset(); }
+      return;
+    }
+    // picked or dragging: once it moves past the tolerance it's a reorder
+    if(dx > TB_MOVE_TOL || dy > TB_MOVE_TOL){ tbMode = "dragging"; }
+    e.preventDefault();
+    var over = chipAtPoint(e.clientX, e.clientY);
+    tagbarEl.querySelectorAll(".drop-target").forEach(function(c){ if(c!==over) c.classList.remove("drop-target"); });
+    if(over && over !== tbDown.chip){
+      over.classList.add("drop-target");
+      var rect = over.getBoundingClientRect();
+      var after = e.clientX > rect.left + rect.width/2;
+      if(after){ over.parentNode.insertBefore(tbDown.chip, over.nextSibling); }
+      else{ over.parentNode.insertBefore(tbDown.chip, over); }
+    }
+  });
+
+  tagbarEl.addEventListener("pointerup", function(e){
+    if(!tbDown){ return; }
+    var mode = tbMode, tag = tbDown.tag;
+    if(mode === "dragging"){ commitOrderFromDom(); renderTagbar(); tbReset(); return; }
+    tbReset();
+    if(mode === "picked"){
+      // lifted but never moved -> offer to hide from home
+      if(window.confirm("把标签「" + tag + "」从首页隐藏吗？\n（标签本身保留，可在「标签」页点眼睛恢复。）")){
+        hideTagFromHome(tag);
+      }
+      return;
+    }
+    // armed and released quickly -> tap = filter
+    filterByTag(tag);
+  });
+  tagbarEl.addEventListener("pointercancel", tbReset);
+
+  tagbarEl.addEventListener("click", function(e){
+    // "全部" chip (no data-chiptag) still uses plain click
+    var all = e.target.closest('[data-settag=""]');
+    if(all){ filterByTag(""); }
+  });
+
+  tagsListEl.addEventListener("click", function(e){
+    var eye = e.target.closest("[data-eyetag]");
+    if(eye){
+      var et = eye.getAttribute("data-eyetag");
+      var hi = hiddenTags.indexOf(et);
+      if(hi === -1){ hiddenTags.push(et); }
+      else{ hiddenTags.splice(hi, 1); }
+      persist();
+      renderTagbar();
+      renderTagsView();
+      return;
+    }
+    var sw = e.target.closest("[data-tagcolor]");
+    if(sw){
+      var name = sw.getAttribute("data-for");
+      var key = sw.getAttribute("data-tagcolor");
+      setTagColor(name, key || null);
+      persist();
+      renderAll();
+      return;
+    }
+    var ct = e.target.closest("[data-colortag]");
+    if(ct){
+      var cname = ct.getAttribute("data-colortag");
+      colorEditTag = (colorEditTag === cname) ? null : cname;
+      renderTagsView();
+      return;
+    }
+    var ed = e.target.closest("[data-edittag]");
+    if(ed){ renameTag(ed.getAttribute("data-edittag")); return; }
+    var dl = e.target.closest("[data-deltag]");
+    if(dl){ deleteTag(dl.getAttribute("data-deltag")); return; }
+    var btn = e.target.closest("[data-settag]");
+    if(btn){ filterByTag(btn.getAttribute("data-settag")); }
+  });
+
+  listEl.addEventListener("click", function(e){
+    if(suppressClick){ suppressClick = false; e.preventDefault(); return; }
+    if(e.target.closest('[data-action="open"]')) return;   // let the link open normally
+    var card = e.target.closest(".card");
+    if(!card) return;
+    var id = card.dataset.id;
+    if(e.target.closest('[data-action="delete"]')){ deleteItem(id); return; }
+    var tagEl = e.target.closest("[data-tag]");
+    if(tagEl){ filterByTag(tagEl.getAttribute("data-tag")); return; }
+    if(e.target.closest('[data-action="toggle"]')){
+      expandedId = (expandedId === id) ? null : id;
+      renderList();
+    }
+  });
+
+  // ---- Long-press (primary) + double-click (fallback) to open card actions ----
+  var pressTimer = null, suppressClick = false, pressCard = null;
+  var LONG_PRESS_MS = 500, MOVE_TOL = 10;
+  var startX = 0, startY = 0;
+
+  function cardEl(target){ return target.closest ? target.closest(".card") : null; }
+  function clearPress(){
+    if(pressTimer){ clearTimeout(pressTimer); pressTimer = null; }
+    if(pressCard){ pressCard.classList.remove("pressing"); pressCard = null; }
+  }
+  function startPress(target, x, y){
+    // ignore presses that begin on an interactive child (link/delete/tag)
+    if(target.closest('[data-action="open"]') || target.closest('[data-action="delete"]') || target.closest('[data-tag]')) return;
+    var card = cardEl(target);
+    if(!card) return;
+    pressCard = card; startX = x; startY = y;
+    card.classList.add("pressing");
+    pressTimer = setTimeout(function(){
+      pressTimer = null;
+      suppressClick = true;          // cancel the click that follows release
+      if(pressCard){ pressCard.classList.remove("pressing"); }
+      openCardSheet(card.dataset.id);
+      pressCard = null;
+    }, LONG_PRESS_MS);
+  }
+  function movePress(x, y){
+    if(!pressTimer) return;
+    if(Math.abs(x-startX) > MOVE_TOL || Math.abs(y-startY) > MOVE_TOL){ clearPress(); }
+  }
+
+  // Touch (mobile — primary path)
+  listEl.addEventListener("touchstart", function(e){
+    var t = e.touches[0]; if(!t) return;
+    startPress(e.target, t.clientX, t.clientY);
+  }, {passive:true});
+  listEl.addEventListener("touchmove", function(e){
+    var t = e.touches[0]; if(!t) return;
+    movePress(t.clientX, t.clientY);
+  }, {passive:true});
+  listEl.addEventListener("touchend", clearPress);
+  listEl.addEventListener("touchcancel", clearPress);
+
+  // Mouse (desktop — long-press also works with the button held down)
+  listEl.addEventListener("mousedown", function(e){
+    if(e.button !== 0) return;
+    startPress(e.target, e.clientX, e.clientY);
+  });
+  listEl.addEventListener("mousemove", function(e){ movePress(e.clientX, e.clientY); });
+  listEl.addEventListener("mouseup", clearPress);
+  listEl.addEventListener("mouseleave", clearPress);
+
+  // Double-click fallback (works everywhere long-press might not)
+  listEl.addEventListener("dblclick", function(e){
+    if(e.target.closest('[data-action="open"]') || e.target.closest('[data-action="delete"]') || e.target.closest('[data-tag]')) return;
+    var card = cardEl(e.target);
+    if(card){ suppressClick = true; openCardSheet(card.dataset.id); }
+  });
+
+  tagSuggestEl.addEventListener("click", function(e){
+    var btn = e.target.closest("[data-addtag]");
+    if(!btn) return;
+    var t = btn.getAttribute("data-addtag");
+    var cur = parseTags(fTags.value);
+    if(cur.indexOf(t) === -1){
+      cur.push(t);
+      fTags.value = cur.join(" ");
+    }
+  });
+
+  $("save-btn").addEventListener("click", saveItem);
+
+  // ---- Data menu: export / import / clear ----
+  var sheet = $("sheet"), sheetMask = $("sheet-mask"), importFile = $("import-file");
+
+  function openSheet(){ sheet.classList.add("show"); sheetMask.classList.add("show"); }
+  function closeSheet(){ sheet.classList.remove("show"); sheetMask.classList.remove("show"); }
+
+  $("menu-btn").addEventListener("click", openSheet);
+  sheetMask.addEventListener("click", closeSheet);
+
+  // ---- Card action sheet (long-press / double-click) ----
+  var cardSheet = $("card-sheet"), cardMask = $("card-mask"), cardColorPicker = $("card-color-picker");
+
+  function getItem(id){
+    for(var i=0;i<items.length;i++){ if(items[i].id === id) return items[i]; }
+    return null;
+  }
+  function renderCardColorPicker(it){
+    var cur = it.bg || "";
+    cardColorPicker.innerHTML = CARD_BG.map(function(c){
+      var isWhite = c.key === "";
+      var bgStyle = isWhite ? "background:#fff;" : "background:" + c.dot + ";";
+      var border = isWhite ? "border:1px dashed var(--text-faint);" : "border:2px solid transparent;";
+      return '<button type="button" class="swatch' + (cur===c.key?" on":"") + '" data-cardbg="' + c.key + '" style="' + bgStyle + border + '" title="' + (isWhite?"默认":c.key) + '"></button>';
+    }).join("");
+  }
+  function openCardSheet(id){
+    var it = getItem(id);
+    if(!it) return;
+    actingCardId = id;
+    $("card-sheet-title").textContent = it.title || "操作";
+    $("pin-btn-label").textContent = it.pinned ? "已置顶" : "置顶";
+    $("pin-btn").style.display = it.pinned ? "none" : "";
+    $("unpin-btn").style.display = it.pinned ? "" : "none";
+    renderCardColorPicker(it);
+    cardSheet.classList.add("show"); cardMask.classList.add("show");
+  }
+  function closeCardSheet(){
+    cardSheet.classList.remove("show"); cardMask.classList.remove("show");
+    actingCardId = null;
+  }
+  cardMask.addEventListener("click", closeCardSheet);
+
+  $("pin-btn").addEventListener("click", function(){
+    var it = getItem(actingCardId); if(!it) return;
+    it.pinned = true;
+    persist(); closeCardSheet(); renderList();
+  });
+  $("unpin-btn").addEventListener("click", function(){
+    var it = getItem(actingCardId); if(!it) return;
+    it.pinned = false;
+    persist(); closeCardSheet(); renderList();
+  });
+  cardColorPicker.addEventListener("click", function(e){
+    var sw = e.target.closest("[data-cardbg]");
+    if(!sw) return;
+    var it = getItem(actingCardId); if(!it) return;
+    var key = sw.getAttribute("data-cardbg");
+    if(key){ it.bg = key; } else { delete it.bg; }
+    persist();
+    renderCardColorPicker(it);
+    renderList();
+  });
+
+  function pad2(n){ return n<10 ? "0"+n : ""+n; }
+
+  function exportData(){
+    closeSheet();
+    if(items.length === 0 && customTags.length === 0){ alert("还没有任何知识可以导出。"); return; }
+    var payload = { app:"knowledge-base", version:1, exportedAt:Date.now(), items:items, customTags:customTags, tagColors:tagColors, tagOrder:tagOrder, hiddenTags:hiddenTags };
+    var blob = new Blob([JSON.stringify(payload, null, 2)], { type:"application/json" });
+    var url = URL.createObjectURL(blob);
+    var d = new Date();
+    var fname = "知识库备份_" + d.getFullYear() + pad2(d.getMonth()+1) + pad2(d.getDate()) +
+                "_" + pad2(d.getHours()) + pad2(d.getMinutes()) + ".json";
+    var a = document.createElement("a");
+    a.href = url; a.download = fname;
+    document.body.appendChild(a); a.click();
+    document.body.removeChild(a);
+    setTimeout(function(){ URL.revokeObjectURL(url); }, 1000);
+  }
+
+  function normalizeImported(arr){
+    var out = [];
+    arr.forEach(function(x){
+      if(!x) return;
+      var isLink = x.type === "link";
+      if(!isLink && typeof x.content !== "string") return;
+      out.push({
+        id: (typeof x.id === "string" && x.id) ? x.id : uid(),
+        type: isLink ? "link" : "note",
+        title: (typeof x.title === "string" && x.title.trim()) ? x.title.trim() : (isLink ? (x.url||"链接") : deriveTitle(x.content)),
+        url: isLink && typeof x.url === "string" ? x.url : undefined,
+        content: typeof x.content === "string" ? x.content : "",
+        html: (!isLink && typeof x.html === "string" && x.html) ? sanitizeHtml(x.html) : undefined,
+        tags: Array.isArray(x.tags) ? x.tags.filter(function(t){ return typeof t === "string" && t.trim(); }).map(function(t){ return t.trim(); }) : [],
+        pinned: x.pinned === true,
+        bg: (typeof x.bg === "string" && cardBgByKey(x.bg).key) ? x.bg : undefined,
+        createdAt: (typeof x.createdAt === "number" && isFinite(x.createdAt)) ? x.createdAt : Date.now()
+      });
+    });
+    return out;
+  }
+
+  function importData(text){
+    var data;
+    try{ data = JSON.parse(text); }
+    catch(e){ alert("导入失败：文件不是有效的 JSON 格式。"); return; }
+    var incoming = Array.isArray(data) ? data : (data && Array.isArray(data.items) ? data.items : null);
+    var incomingTags = (data && Array.isArray(data.customTags)) ? data.customTags : [];
+    if(!incoming && incomingTags.length === 0){ alert("导入失败：未在文件中找到知识数据。"); return; }
+    var clean = incoming ? normalizeImported(incoming) : [];
+
+    var existingIds = {};
+    items.forEach(function(it){ existingIds[it.id] = true; });
+    var added = 0;
+    clean.forEach(function(it){
+      if(existingIds[it.id]) return;   // skip duplicates by id
+      existingIds[it.id] = true;
+      items.push(it);
+      added++;
+    });
+    // merge custom tags (dedupe against existing custom tags)
+    var tagAdded = 0;
+    incomingTags.forEach(function(t){
+      if(typeof t === "string" && t.trim() && customTags.indexOf(t.trim()) === -1){
+        customTags.push(t.trim());
+        tagAdded++;
+      }
+    });
+    // merge color overrides (don't clobber colors the user already set locally)
+    var incomingColors = (data && data.tagColors && typeof data.tagColors === "object") ? data.tagColors : {};
+    Object.keys(incomingColors).forEach(function(k){
+      if(!tagColors[k] && paletteByKey(incomingColors[k])){ tagColors[k] = incomingColors[k]; }
+    });
+    // merge hidden-from-home set (union)
+    if(data && Array.isArray(data.hiddenTags)){
+      data.hiddenTags.forEach(function(t){ if(typeof t==="string" && hiddenTags.indexOf(t)===-1) hiddenTags.push(t); });
+    }
+    // adopt a manual order only if we don't already have one
+    if((!tagOrder || tagOrder.length===0) && data && Array.isArray(data.tagOrder)){
+      tagOrder = data.tagOrder.filter(function(t){ return typeof t === "string"; });
+    }
+    items.sort(function(a,b){ return b.createdAt - a.createdAt; });
+    persist();
+    activeTag = null; searchQuery = ""; searchEl.value = ""; expandedId = null;
+    setView("home");
+    renderAll();
+    var msg = "导入完成：新增 " + added + " 条知识";
+    if(clean.length-added>0) msg += "，跳过 " + (clean.length-added) + " 条重复";
+    if(tagAdded>0) msg += "，新增 " + tagAdded + " 个标签";
+    alert(msg + "。");
+  }
+
+  $("export-btn").addEventListener("click", exportData);
+
+  $("import-btn").addEventListener("click", function(){
+    closeSheet();
+    importFile.value = "";   // allow re-importing the same file
+    importFile.click();
+  });
+
+  importFile.addEventListener("change", function(){
+    var file = importFile.files && importFile.files[0];
+    if(!file) return;
+    var reader = new FileReader();
+    reader.onload = function(){ importData(String(reader.result)); };
+    reader.onerror = function(){ alert("读取文件失败，请重试。"); };
+    reader.readAsText(file);
+  });
+
+  $("clear-btn").addEventListener("click", function(){
+    closeSheet();
+    if(items.length === 0 && customTags.length === 0){ alert("当前没有任何数据。"); return; }
+    if(!window.confirm("确定清空全部 " + items.length + " 条知识吗？\n标签也会一并清除。建议先「导出备份」。此操作不可撤销。")) return;
+    items = [];
+    customTags = [];
+    tagColors = {};
+    tagOrder = [];
+    hiddenTags = [];
+    colorEditTag = null;
+    expandedId = null; activeTag = null; searchQuery = ""; searchEl.value = "";
+    persist();
+    renderAll();
+  });
+
+  // ---- Seed data (first launch only) ----
+  function seedData(){
+    var now = Date.now(), day = 86400000, hr = 3600000;
+    return [
+      { id:uid(), type:"note", title:"15分钟城市理论",
+        content:"15分钟城市（15-minute city）由 Carlos Moreno 提出，核心是居民步行或骑行15分钟内即可满足日常所需：居住、工作、商业、医疗、教育与娱乐。强调功能混合与就近服务，从而减少通勤、降低碳排放并提升社区活力。巴黎、墨尔本等城市已将其纳入规划实践。",
+        tags:["城市规划","理论"], createdAt: now - day*6 - hr*3 },
+      { id:uid(), type:"note", title:"扎根理论的三级编码",
+        content:"扎根理论的编码分为三步：开放编码（逐句拆解资料、贴标签、概念化）、轴心编码（围绕类属建立关联）、选择编码（提炼核心范畴并形成理论）。整个过程依赖研究者的理论敏感性，并通过持续比较法不断修正，直至理论饱和。",
+        tags:["研究方法","质性研究"], createdAt: now - day*4 - hr*5 },
+      { id:uid(), type:"link", title:"中国知网 CNKI",
+        url:"https://www.cnki.net", content:"查中文文献的主入口，写综述时常用。",
+        tags:["文献","工具"], createdAt: now - day*3 - hr*6 },
+      { id:uid(), type:"note", title:"文献笔记：《美国大城市的死与生》",
+        content:"Jane Jacobs 批判现代主义规划对街区活力的破坏，提出城市多样性的四个必要条件：1）混合的主要用途；2）小尺度街区；3）不同年代的建筑并存；4）足够高的人口密度。她还强调“街道眼”对城市安全的自发维护作用。",
+        tags:["文献","城市规划"], createdAt: now - day*3 - hr*1 },
+      { id:uid(), type:"note", title:"番茄工作法",
+        content:"以25分钟专注加5分钟休息为一个番茄钟，每完成4个番茄钟后进行15–30分钟的长休息。关键在于把任务拆分为可在单个番茄钟内完成的小块，并记录每日完成数量，用以复盘自己的精力分配与专注质量。",
+        tags:["学习方法","效率"], createdAt: now - day*1 - hr*2 },
+      { id:uid(), type:"note", title:"费曼学习法",
+        content:"用最简单的语言把一个概念讲给完全的外行听，凡是讲不清楚的地方，就是你理解的漏洞；回到原始材料补足后再讲一遍，直到通顺为止。核心是“以教代学”，通过输出倒逼输入。",
+        tags:["学习方法"], createdAt: now - hr*5 }
+    ];
+  }
+
+  function load(){
+    try{
+      var raw = localStorage.getItem(STORAGE_KEY);
+      if(raw){
+        items = JSON.parse(raw) || [];
+      }else{
+        items = seedData();
+        persist();
+      }
+    }catch(e){
+      items = seedData();
+    }
+    try{
+      var rawTags = localStorage.getItem(TAGS_KEY);
+      customTags = rawTags ? (JSON.parse(rawTags) || []) : [];
+      if(!Array.isArray(customTags)) customTags = [];
+    }catch(e){
+      customTags = [];
+    }
+    try{
+      var rawColors = localStorage.getItem(COLORS_KEY);
+      tagColors = rawColors ? (JSON.parse(rawColors) || {}) : {};
+      if(typeof tagColors !== "object" || Array.isArray(tagColors)) tagColors = {};
+    }catch(e){
+      tagColors = {};
+    }
+    try{
+      var rawOrder = localStorage.getItem(ORDER_KEY);
+      tagOrder = rawOrder ? (JSON.parse(rawOrder) || []) : [];
+      if(!Array.isArray(tagOrder)) tagOrder = [];
+    }catch(e){
+      tagOrder = [];
+    }
+    try{
+      var rawHidden = localStorage.getItem(HIDDEN_KEY);
+      hiddenTags = rawHidden ? (JSON.parse(rawHidden) || []) : [];
+      if(!Array.isArray(hiddenTags)) hiddenTags = [];
+    }catch(e){
+      hiddenTags = [];
+    }
+    try{
+      var rawAi = localStorage.getItem(AISET_KEY);
+      if(rawAi){
+        var s = JSON.parse(rawAi) || {};
+        if(typeof s.key === "string") aiSettings.key = s.key;
+        if(typeof s.model === "string" && s.model) aiSettings.model = s.model;
+        if(typeof s.endpoint === "string" && s.endpoint) aiSettings.endpoint = s.endpoint;
+      }
+    }catch(e){}
+  }
+
+  // ---- Ask AI (智谱 GLM) ----
+  var aiAnswerEl = $("ai-answer");
+
+  function aiSyncSettingsInputs(){
+    $("ai-key").value = aiSettings.key || "";
+    $("ai-model").value = aiSettings.model || "";
+    $("ai-endpoint").value = aiSettings.endpoint || "";
+  }
+
+  $("ai-settings-btn").addEventListener("click", function(){
+    var box = $("ai-settings");
+    var show = box.style.display === "none";
+    box.style.display = show ? "" : "none";
+    if(show) aiSyncSettingsInputs();
+  });
+
+  $("ai-save-set").addEventListener("click", function(){
+    aiSettings.key = $("ai-key").value.trim();
+    aiSettings.model = $("ai-model").value.trim() || "glm-4-flash";
+    aiSettings.endpoint = $("ai-endpoint").value.trim() || "https://open.bigmodel.cn/api/paas/v4/chat/completions";
+    persistAiSettings();
+    $("ai-settings").style.display = "none";
+    alert("已保存。Key 仅存于本机浏览器。");
+  });
+
+  $("ai-clear-key").addEventListener("click", function(){
+    if(!window.confirm("清除已保存的 API Key？")) return;
+    aiSettings.key = "";
+    persistAiSettings();
+    aiSyncSettingsInputs();
+  });
+
+  document.querySelectorAll(".ai-scope-btn").forEach(function(b){
+    b.addEventListener("click", function(){
+      aiScope = b.dataset.scope;
+      document.querySelectorAll(".ai-scope-btn").forEach(function(x){ x.classList.toggle("on", x===b); });
+    });
+  });
+
+  // Build a compact, plain-text context from the user's notes
+  function buildContext(){
+    var rows;
+    if(aiScope === "filtered" && activeTag){
+      rows = items.filter(function(it){ return (it.tags||[]).indexOf(activeTag) !== -1; });
+    }else{
+      rows = items.slice();
+    }
+    var used = [], budget = 12000;   // rough char cap to stay within token limits
+    var ctx = "";
+    for(var i=0;i<rows.length;i++){
+      var it = rows[i];
+      var piece = "【" + (it.title||"无标题") + "】";
+      if((it.tags||[]).length) piece += "（标签：" + it.tags.join("、") + "）";
+      piece += "\n";
+      if(it.type === "link"){ piece += "链接：" + (it.url||"") + "\n"; }
+      if(it.content) piece += it.content + "\n";
+      piece += "\n";
+      if(ctx.length + piece.length > budget) break;
+      ctx += piece;
+      used.push(it.title || "无标题");
+    }
+    return { text: ctx.trim(), titles: used, total: rows.length };
+  }
+
+  function setAnswer(text, cls){
+    aiAnswerEl.className = "ai-answer" + (cls ? " " + cls : "");
+    aiAnswerEl.textContent = text;
+  }
+
+  function askAI(){
+    if(aiBusy) return;
+    var q = $("ai-input").value.trim();
+    if(!q){ $("ai-input").focus(); return; }
+    if(!aiSettings.key){
+      setAnswer("还没有设置 API Key。点击右上角齿轮按钮，填入你的智谱 Key 后再试。", "ai-empty");
+      $("ai-settings").style.display = "";
+      aiSyncSettingsInputs();
+      return;
+    }
+    if(items.length === 0){
+      setAnswer("你的知识库还是空的，先去「添加」记几条吧。", "ai-empty");
+      return;
+    }
+    var ctx = buildContext();
+    if(!ctx.text){
+      setAnswer("当前范围内没有可用的笔记内容。换成「全部知识」或先选一个有内容的标签。", "ai-empty");
+      return;
+    }
+
+    aiBusy = true;
+    $("ai-send").textContent = "思考中…";
+    aiAnswerEl.className = "ai-answer loading";
+    aiAnswerEl.innerHTML = "正在基于你的笔记思考…<span class='ai-cursor'></span>";
+
+    var sys = "你是用户个人知识库的助手。只能依据下面提供的笔记内容来回答问题；" +
+      "如果笔记里没有相关信息，请如实说明「你的笔记里没有相关内容」，不要编造。回答用中文，简洁清楚。\n\n" +
+      "=== 用户的笔记 ===\n" + ctx.text;
+
+    var body = {
+      model: aiSettings.model || "glm-4-flash",
+      messages: [
+        { role: "system", content: sys },
+        { role: "user", content: q }
+      ],
+      stream: false
+    };
+
+    fetch(aiSettings.endpoint, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer " + aiSettings.key
+      },
+      body: JSON.stringify(body)
+    }).then(function(resp){
+      return resp.json().then(function(data){ return { ok: resp.ok, status: resp.status, data: data }; });
+    }).then(function(r){
+      if(!r.ok){
+        var em = (r.data && r.data.error && (r.data.error.message || r.data.error.code)) || ("HTTP " + r.status);
+        setAnswer("调用失败：" + em + "\n\n请检查 API Key、模型名是否正确（齿轮按钮里可改）。", "ai-empty");
+        return;
+      }
+      var ans = "";
+      try{ ans = r.data.choices[0].message.content; }catch(e){ ans = ""; }
+      if(!ans){ setAnswer("没有收到有效回答，请重试。", "ai-empty"); return; }
+      aiAnswerEl.className = "ai-answer";
+      aiAnswerEl.textContent = ans;
+      var src = document.createElement("div");
+      src.className = "ai-src";
+      src.innerHTML = "<b>依据：</b>" + esc(ctx.titles.slice(0,8).join("、")) + (ctx.titles.length>8 ? " 等 " + ctx.titles.length + " 条" : "（" + ctx.titles.length + " 条）");
+      aiAnswerEl.appendChild(src);
+    }).catch(function(err){
+      setAnswer("网络或跨域错误：" + (err && err.message ? err.message : err) +
+        "\n\n说明：用浏览器直接打开本文件时，部分接口会被跨域(CORS)策略拦截。若一直失败，可能需要把应用托管到网址访问，或改用其他方式。", "ai-empty");
+    }).then(function(){
+      aiBusy = false;
+      $("ai-send").textContent = "提问";
+    });
+  }
+
+  $("ai-send").addEventListener("click", askAI);
+  $("ai-input").addEventListener("keydown", function(e){
+    if(e.key === "Enter" && (e.ctrlKey || e.metaKey)){ e.preventDefault(); askAI(); }
+  });
+
+  // ---- Init ----
+  load();
+  renderAll();
+})();
+</script>
+<script>
+// Register the service worker (only works over http/https, e.g. GitHub Pages).
+// Guarded so opening via file:// stays harmless.
+if ("serviceWorker" in navigator && location.protocol.indexOf("http") === 0) {
+  window.addEventListener("load", function(){
+    navigator.serviceWorker.register("./sw.js").catch(function(err){
+      console.warn("SW register failed:", err);
+    });
+  });
+}
+</script>
+</body>
+</html>
